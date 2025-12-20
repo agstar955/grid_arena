@@ -43,6 +43,8 @@ ASSET_DIR = os.path.join(BASE_DIR, "src")
 p1=None
 p2=None
 turn=None
+objects = []
+effects = []
 
 def loadImg(dir,scale=1,flip=False):
     return pygame.transform.flip(pygame.transform.scale(pygame.image.load(os.path.join(ASSET_DIR,dir)),(32*scale,32*scale)),True,False) if flip else pygame.transform.scale(pygame.image.load(os.path.join(ASSET_DIR,dir)),(32*scale,32*scale))
@@ -78,9 +80,6 @@ STATS = {"stun":loadImg("stat/stun.png",SCALE)}
 
 D = {"sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}}}
 
-objects = []
-effects = []
-
 class player:
     def __init__(self,xy,c,p):
         self.pos = [xy]
@@ -99,6 +98,9 @@ class player:
         self.maxmove=D[c]['move']
         self.p = p
         self.stat = {"charge":0,"stun":0}
+
+    def addStat(self,stat,n):
+        self.stat[stat] += n
 
     def coolStep(self):
         for i in range(len(self.cool)):
@@ -148,7 +150,7 @@ class player:
                 self.cool[0]-=1
                 if self.cool[0]<=-3:
                     self.cool[0]=2
-                self.pos[0]=[x,y]
+                self.pos[0]=(x,y)
                 
                 self.mode=''
                 return True
@@ -193,7 +195,7 @@ class player:
 
 class projectile:
     def __init__(self,x,y,face,life=None,owner=None,wait=False):
-        self.pos=[x,y]
+        self.pos=(x,y)
         self.face=face
         self.life = life
         self.owner = owner
@@ -206,9 +208,6 @@ class projectile:
         self.img = EFFECTS["img"]
     
     def update(self):
-        if self.wait:
-            self.wait=False
-            return
         if self.life:
             self.life-=1
             if self.life<=0:
@@ -216,9 +215,12 @@ class projectile:
         box=self.hitbox[:]
         self.pos = getPos(self.pos,self.face)
 
-        for i in range(len(self.hitbox)):
-            self.hitbox[i]=getPos(self.hitbox[i],self.face)
-        box=box+self.hitbox
+        if self.wait:
+            self.wait=False
+        else:
+            for i in range(len(self.hitbox)):
+                self.hitbox[i]=getPos(self.hitbox[i],self.face)
+            box=box+self.hitbox
 
         if self.owner:
             if tuple(getOpponent(self.owner).pos[0]) in box:
@@ -241,15 +243,17 @@ class projectile:
         surface.blit(body, body_rect)
      
 class effect:
-    def __init__(self,x,y,face,life):
-        self.pos=[x,y]
+    def __init__(self,x,y,face,life,owner):
+        self.pos=(x,y)
         self.face=face
         self.life = life
+        self.owner = owner
         self.setting()
 
     def setting(self):
         self.hitbox=[self.pos]
         self.img = EFFECTS["img"]
+        self.damage = 10
     
     def update(self):
         self.life-=1
@@ -257,6 +261,10 @@ class effect:
     def draw(self,surface):
         body,body_rect = rotCenter(self.img["body"], scaleXY(self.pos,32), self.face*45)
         surface.blit(body, body_rect)
+    
+    def checkHit(self):
+        if tuple(getOpponent(self.owner).pos[0]) in self.hitbox:
+            getOpponent(self.owner).hurt(self.damage)
 
 class pSword(player):
     def move(self,mx,my):
@@ -272,30 +280,21 @@ class pSword(player):
                     if self.cool[0] <= -self.maxmove:
                         self.cool[0]=self.maxcool[0]
                 
-                self.pos[0]=[x,y]
+                self.pos[0]=(x,y)
 
                 self.mode=''
                 return True
             
     def skillAction1(self,x,y):
-        effects.append(sword(x,y,self.face,EFFECT_DUR))
-        if tuple(getOpponent(self.p).pos[0]) in effects[-1].hitbox:
-            getOpponent(self.p).hurt(10)
-            self.coolStep()
+        effects.append(sword_e(x,y,self.face,EFFECT_DUR,self.p))
+        effects[-1].checkHit()
     
     def skillAction2(self,x,y):
         objects.append(sword_p(x,y,self.face,owner = self.p,wait=True))
     
     def skillAction3(self,x,y):
-        global turn
-        effects.append(strike(self.pos[0][0],self.pos[0][1],self.face,100))
-        if tuple(getOpponent(self.p).pos[0]) in effects[-1].hitbox:
-            getOpponent(self.p).hurt(15)
-            getOpponent(self.p).stat["stun"]+=1
-            xy = getPos(self.pos[0],self.face)
-            objects.append(sword_p(xy[0],xy[1],self.face,owner = self.p,wait=True))
-            self.coolStep()
-            turn=getOpponent(self.p)
+        effects.append(strike(x,y,self.face,100,self.p))
+        effects[-1].checkHit()
 
    
 class sword_p(projectile):
@@ -320,11 +319,33 @@ class sword_p(projectile):
         getSelf(p).hurt(self.damage)
         getSelf(self.owner).coolStep()
 
+class sword_e(effect):
+    def setting(self):
+        self.damage = 10
+        center = backtrack(self.pos,self.face)
+        self.hitbox=[self.pos,getPos(center,addFace(self.face,1)),getPos(center,addFace(self.face,-1))]
+        self.img = EFFECTS["sword_adj"] if self.face % 2 == 0 else EFFECTS["sword_diag"]
+        
+    def draw(self,surface):
+        body,body_rect = rotCenter(self.img["body"], scaleXY(self.pos,32), self.face*45 if self.face % 2 == 0 else addFace(self.face,-1)*45)
+        surface.blit(body, body_rect)
+        
+        pos = (self.hitbox[1],self.hitbox[2])
 
-    
+        left,left_rect = rotCenter(self.img["left"], scaleXY(pos[0],32), self.face*45 if self.face % 2 == 0 else addFace(self.face,-1)*45)
+        right,right_rect = rotCenter(self.img["right"], scaleXY(pos[1],32), self.face*45 if self.face % 2 == 0 else addFace(self.face,1)*45)
+        surface.blit(left, left_rect)
+        surface.blit(right, right_rect)
+
+    def checkHit(self):
+        if tuple(getOpponent(self.owner).pos[0]) in self.hitbox:
+            getOpponent(self.owner).hurt(self.damage)
+            getSelf(self.owner).coolStep()
+
 class strike(effect):
     def setting(self):
-        self.hitbox=[getPos(self.pos,self.face)]
+        self.damage = 15
+        self.hitbox=[self.pos]
         while 0< self.hitbox[-1][0] < 9 and 0< self.hitbox[-1][1] < 9:
             self.hitbox.append(getPos(self.hitbox[-1],self.face))
         self.img = EFFECTS["sword_strike"]
@@ -333,15 +354,43 @@ class strike(effect):
         for x,y in self.hitbox:
             img,img_rect = rotCenter(self.img, scaleXY((x,y),32), self.face*45)
             surface.blit(img, img_rect)
+    
+    def checkHit(self):
+        if tuple(getOpponent(self.owner).pos[0]) in self.hitbox:
+            getOpponent(self.owner).hurt(self.damage)
+            getOpponent(self.owner).addStat("stun",2)
+            xy = getPos(getSelf(self.owner).pos[0],self.face)
+            objects.append(sword_p(xy[0],xy[1],self.face,owner = self.owner,wait=True))
+            getSelf(self.owner).coolStep()
 
 def face2xy(face):
     return tuple(map(int,XY[face].split("/")))
-
 def xy2face(xy):
     return FACE[str(0 if xy[0]==0 else 1 if xy[0]>0 else -1)+"/"+str(0 if xy[1]==0 else 1 if xy[1]>0 else -1)]
-
 def addFace(face,x):
     return face+x-8 if face+x>7 else face+x+8 if face+x < 0 else face+x
+def scaleXY(xy,scale=GRID_SIZE):
+    return (xy[0]*scale,xy[1]*scale)
+def getSelf(p):
+    return p1 if p==1 else p2
+def getOpponent(p):
+    return p1 if p==2 else p2
+def rotCenter(img,xy, R):
+    rect = img.get_rect(center=(xy[0]+32, xy[1]+32))
+    rot_img = pygame.transform.rotate(img, R)
+    rot_rect = rot_img.get_rect(center=rect.center)
+    rot_rect[0] += xy[0]
+    rot_rect[1] += xy[1]
+    return rot_img,rot_rect
+def backtrack(xy,face):
+    rxy = face2xy(addFace(face,4))
+    center = (xy[0]+rxy[0],xy[1]+rxy[1])
+    return center
+def getPos(xy,face):
+    return (xy[0]+face2xy(face)[0],xy[1]+face2xy(face)[1])
+def distance(s,e):
+    return abs(e[0]-s[0])+abs(e[1]-s[1])
+
 
 def draw_skill_icon(surface, icon, x, y, name="", cd=None,active=False):
     # 아이콘
@@ -369,33 +418,6 @@ def draw_skill_icon(surface, icon, x, y, name="", cd=None,active=False):
         iy = y + icon.get_height() - th - 1
         pygame.draw.rect(surface, (0, 0, 0, 180), (ix - 1, iy - 1, tw + 2, th + 2))
         surface.blit(cd_text, (ix, iy))
-
-def scaleXY(xy,scale=GRID_SIZE):
-    return (xy[0]*scale,xy[1]*scale)
-
-def getSelf(p):
-    return p1 if p==1 else p2
-def getOpponent(p):
-    return p1 if p==2 else p2
-
-def rotCenter(img,xy, R):
-    rect = img.get_rect(center=(xy[0]+32, xy[1]+32))
-    rot_img = pygame.transform.rotate(img, R)
-    rot_rect = rot_img.get_rect(center=rect.center)
-    rot_rect[0] += xy[0]
-    rot_rect[1] += xy[1]
-    return rot_img,rot_rect
-
-def backtrack(xy,face):
-    rxy = face2xy(addFace(face,4))
-    center = (xy[0]+rxy[0],xy[1]+rxy[1])
-    return center
-
-def getPos(xy,face):
-    return (xy[0]+face2xy(face)[0],xy[1]+face2xy(face)[1])
-
-def distance(s,e):
-    return abs(e[0]-s[0])+abs(e[1]-s[1])
 
 def draw_grid(surface):
     # 타일 채우기
@@ -434,13 +456,10 @@ def draw_objects(surface,p1,p2):
     for o in objects:
         o.draw(surface)
     
-
-
 def draw_text(surface, text, x, y, font, color=TEXT_COLOR):
     img = font.render(text, True, color)
     surface.blit(img, (x, y))
     return img.get_rect(topleft=(x, y))
-
 
 def draw_info_panel(surface, font, p1, p2,p):
     panel_rect = pygame.Rect(
@@ -516,8 +535,10 @@ def update():
 
 def main():
     global p1,p2,turn
-    p1 = pSword([1,1],"sword",1)
-    p2 = pSword([8,8],"sword",2)
+    p1 = pSword((1,1),"sword",1)
+    p2 = pSword((8,8),"sword",2)
+    objects = []
+    effects = []
 
     turn = p1
 
@@ -535,6 +556,10 @@ def main():
             screen.blit(text, rect)
             pygame.display.flip()
             break
+
+        if turn.stat["stun"] > 0: 
+            turn = p2 if turn == p1 else p1
+            continue
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
