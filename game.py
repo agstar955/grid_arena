@@ -213,11 +213,11 @@ class projectile:
             if self.life<=0:
                 return
         box=self.hitbox[:]
-        self.pos = getPos(self.pos,self.face)
 
         if self.wait:
             self.wait=False
         else:
+            self.pos = getPos(self.pos,self.face)
             for i in range(len(self.hitbox)):
                 self.hitbox[i]=getPos(self.hitbox[i],self.face)
             box=box+self.hitbox
@@ -526,24 +526,42 @@ def draw_info_panel(surface, font, p1, p2,p):
 
     pygame.draw.rect(surface,(20,200,20),(GRID_PIXEL_WIDTH+padding,6,36,20) if p==1 else ((GRID_PIXEL_WIDTH+padding,SCREEN_HEIGHT//2+6,36,20)),width=1)
 
-def update():
-    for i in range(len(objects)-1,-1,-1):
-        objects[i].update()
-        if objects[i].life==0:
-            del objects[i]
-
+def changeTurn(p,step=True):
+    turn = 3-p
+    if step:
+        for i in range(len(objects)-1,-1,-1):
+            objects[i].update()
+            if objects[i].life==0:
+                del objects[i]
+        getSelf(turn).update()
+    return turn
 
 def main():
-    global p1,p2,turn
+    global p1,p2,turn,objects,effects
     p1 = pSword((1,1),"sword",1)
     p2 = pSword((8,8),"sword",2)
     objects = []
     effects = []
 
-    turn = p1
+    turn = 1
 
     running = True
     while running:
+        turn_player = getSelf(turn)
+
+        for i in range(len(effects)-1,-1,-1):
+            effects[i].update()
+            if effects[i].life is not None and effects[i].life<=0:
+                del effects[i]
+
+        screen.fill(BG_COLOR)
+
+        draw_grid(screen)
+        draw_objects(screen,p1,p2)
+        draw_info_panel(screen, font, p1, p2,turn_player.p)
+
+        pygame.display.flip()
+
         if p1.hp <= 0:
             text = title_font.render("Player 2 Wins!", True, (50, 50, 255))
             rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
@@ -557,65 +575,49 @@ def main():
             pygame.display.flip()
             break
 
-        if turn.stat["stun"] > 0: 
-            turn = p2 if turn == p1 else p1
+        if turn_player.stat["stun"] > 0: 
+            turn = changeTurn(turn,False)
             continue
-
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.KEYDOWN:
-                if (event.key == pygame.K_q or event.key == pygame.K_u) and turn.cool[0] <= 0:
-                    turn.changeMode("move")
-                elif (event.key == pygame.K_w or event.key == pygame.K_i) and turn.cool[1] <= 0:
-                    turn.changeMode("s1")
-                elif (event.key == pygame.K_e or event.key == pygame.K_o) and turn.cool[2] <= 0:
-                    turn.changeMode("s2")
-                elif (event.key == pygame.K_r or event.key == pygame.K_p) and turn.cool[3] <= 0:
-                    turn.changeMode("s3")
+                if (event.key == pygame.K_q or event.key == pygame.K_u) and turn_player.cool[0] <= 0:
+                    turn_player.changeMode("move")
+                elif (event.key == pygame.K_w or event.key == pygame.K_i) and turn_player.cool[1] <= 0:
+                    turn_player.changeMode("s1")
+                elif (event.key == pygame.K_e or event.key == pygame.K_o) and turn_player.cool[2] <= 0:
+                    turn_player.changeMode("s2")
+                elif (event.key == pygame.K_r or event.key == pygame.K_p) and turn_player.cool[3] <= 0:
+                    turn_player.changeMode("s3")
                 elif event.key==pygame.K_SPACE:
-                    turn.cool[0] = max(0,turn.cool[0])
-                    turn.changeMode("")
-                    turn = p2 if turn == p1 else p1
-                    update()
-                    turn.update()
+                    turn_player.cool[0] = max(0,turn_player.cool[0])
+                    turn_player.changeMode("")
+                    turn = changeTurn(turn)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx,my = event.pos
 
                 if 0 <= mx <= GRID_SIZE * GRID_WIDTH and 0 <= my <= GRID_SIZE * GRID_HEIGHT:
                     tx = math.ceil(mx//GRID_SIZE)
                     ty = math.ceil(my//GRID_SIZE)
-                    if turn.mode == "":
+                    if turn_player.mode == "":
                         continue
-                    elif turn.mode == "move":
-                        if not turn.move(tx,ty):
+                    elif turn_player.mode == "move":
+                        if not turn_player.move(tx,ty):
                             continue
-                    elif turn.mode == "s1":
-                        if not turn.skill1(tx,ty):
+                    elif turn_player.mode == "s1":
+                        if not turn_player.skill1(tx,ty):
                             continue
-                    elif turn.mode == "s2":
-                        if not turn.skill2(tx,ty):
+                    elif turn_player.mode == "s2":
+                        if not turn_player.skill2(tx,ty):
                             continue
-                    elif turn.mode == "s3":
-                        if not turn.skill3(tx,ty):
+                    elif turn_player.mode == "s3":
+                        if not turn_player.skill3(tx,ty):
                             continue
-                    turn = p2 if turn == p1 else p1
-                    update()
-                    turn.update()
+                    turn = changeTurn(turn)
 
-        screen.fill(BG_COLOR)
-
-        for i in range(len(effects)-1,-1,-1):
-            effects[i].update()
-            if effects[i].life is not None and effects[i].life<=0:
-                del effects[i]
-
-        # 그리드 + 플레이어 + 패널 그리기
-        draw_grid(screen)
-        draw_objects(screen,p1,p2)
-        draw_info_panel(screen, font, p1, p2,turn.p)
-
-        pygame.display.flip()
+        
     wait=False
     if running: wait = True
     while wait:
