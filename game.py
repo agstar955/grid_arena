@@ -45,27 +45,35 @@ p2=None
 turn=None
 objects = []
 effects = []
+structures = []
 
 def loadImg(dir,scale=1,flip=False):
     return pygame.transform.flip(pygame.transform.scale(pygame.image.load(os.path.join(ASSET_DIR,dir)),(32*scale,32*scale)),True,False) if flip else pygame.transform.scale(pygame.image.load(os.path.join(ASSET_DIR,dir)),(32*scale,32*scale))
 
 SKILLS = {"sword":{
-    "passive": loadImg("icons/sword/passive.png",SCALE//2),
-    "move": loadImg("icons/sword/move.png",SCALE//2),
-    "1": loadImg("icons/sword/skill1.png",SCALE//2),
-    "2": loadImg("icons/sword/skill2.png",SCALE//2),
-    "3": loadImg("icons/sword/skill3.png",SCALE//2)
-}}
+        "passive": loadImg("icons/sword/passive.png",SCALE//2),
+        "move": loadImg("icons/sword/move.png",SCALE//2),
+        "1": loadImg("icons/sword/skill1.png",SCALE//2),
+        "2": loadImg("icons/sword/skill2.png",SCALE//2),
+        "3": loadImg("icons/sword/skill3.png",SCALE//2)},
+    "engineer":{
+        "passive": loadImg("icons/sword/passive.png",SCALE//2),
+        "move": loadImg("icons/engineer/move.png",SCALE//2),
+        "1": loadImg("icons/engineer/skill1.png",SCALE//2),
+        "2": loadImg("icons/engineer/skill2.png",SCALE//2),
+        "3": loadImg("icons/engineer/skill3.png",SCALE//2)},}
 
-CHARS = {"sword":[loadImg("chars/sword.png",SCALE),loadImg("chars/sword2.png",SCALE)]}
+CHARS = {"sword":[loadImg("chars/sword.png",SCALE),loadImg("chars/sword2.png",SCALE)],
+         "engineer":[loadImg("chars/engineer.png",SCALE),loadImg("chars/engineer2.png",SCALE)]}
 
 ADJ= [(0,1),(0,-1),(1,0),(-1,0)]
 ADJ2 = list(map(lambda x: (x[0]*2,x[1]*2), ADJ))
 DIAG = [(1,1),(1,-1),(-1,1),(-1,-1)]
 NEAR = ADJ + DIAG
+SELF = [(0,0)]
 
-FACE = {"0/-1":0,"-1/-1":1,"-1/0":2,"-1/1":3,"0/1":4,"1/1":5,"1/0":6,"1/-1":7}
-XY = {0: "0/-1",1: "-1/-1",2: "-1/0",3: "-1/1",4: "0/1",5: "1/1",6: "1/0",7: "1/-1",}
+FACE = {"0/-1":0,"-1/-1":1,"-1/0":2,"-1/1":3,"0/1":4,"1/1":5,"1/0":6,"1/-1":7,"0/0":-1}
+XY = {0: "0/-1",1: "-1/-1",2: "-1/0",3: "-1/1",4: "0/1",5: "1/1",6: "1/0",7: "1/-1",-1:"0/0"}
 
 
 EFFECTS = {"sword_adj": {"body":loadImg("effects/sword_adj.png",SCALE),
@@ -74,12 +82,15 @@ EFFECTS = {"sword_adj": {"body":loadImg("effects/sword_adj.png",SCALE),
            "sword_diag": {"body":loadImg("effects/sword_diag.png",SCALE),
                           "left": loadImg("effects/sword_diag_left.png",SCALE),
                           "right": loadImg("effects/sword_diag_left.png",SCALE,True)},
-            "sword_strike":loadImg("effects/sword_strike.png",SCALE)}
+            "sword_strike":loadImg("effects/sword_strike.png",SCALE),
+            "energy_ball":loadImg("effects/energy_ball.png",SCALE)}
+
+STRUCTURES = {"turret":loadImg("structures/turret.png",SCALE)}
 
 STATS = {"stun":loadImg("stat/stun.png",SCALE)}
 
-D = {"sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}},
-     "sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}},
+D = {"sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk/Dash","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}},
+     "engineer":{"maxhp":100,"cool":[2,1,4,7],"passive":"Repair","skill":["Walk","Energy Ball","Turret","Overheat"],"move":3,"tiles":{"move":ADJ,"s1":NEAR,"s2":NEAR,"s3":SELF}},
      "sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}},
      "sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}},
      "sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}},}
@@ -102,6 +113,10 @@ class player:
         self.maxmove=D[c]['move']
         self.p = p
         self.stat = {"charge":0,"stun":0}
+        self.setting()
+    
+    def setting(self):
+        pass
 
     def addStat(self,stat,n):
         self.stat[stat] += n
@@ -229,23 +244,27 @@ class projectile:
                 box=box+self.hitbox
 
         if self.owner:
-            if tuple(getOpponent(self.owner).pos[0]) in box:
+            if getOpponent(self.owner).pos[0] in box:
                 self.hit(3-self.owner)
                 self.life=0
         else:
-            if tuple(getSelf(1).pos[0]) in box:
+            if getSelf(1).pos[0] in box:
                 self.hit(1)
                 self.life=0
-            if tuple(getSelf(2).pos[0]) in box:
+            if getSelf(2).pos[0] in box:
                 self.hit(2)
                 self.life=0
+
+        for i in range(len(structures)-1,-1,-1):
+            structures[i].hit(self.damage)
+            self.life=0
     
     def hit(self,p):
         getSelf(p).hurt(self.damage)
         
         
     def draw(self,surface):
-        body,body_rect = rotCenter(self.img["body"], scaleXY(self.pos,32), self.face*45)
+        body,body_rect = rotCenter(self.img, scaleXY(self.pos,32), self.face*45)
         surface.blit(body, body_rect)
      
 class effect:
@@ -265,12 +284,44 @@ class effect:
         self.life-=1
     
     def draw(self,surface):
-        body,body_rect = rotCenter(self.img["body"], scaleXY(self.pos,32), self.face*45)
+        body,body_rect = rotCenter(self.img, scaleXY(self.pos,32), self.face*45)
         surface.blit(body, body_rect)
     
     def checkHit(self):
-        if tuple(getOpponent(self.owner).pos[0]) in self.hitbox:
+        if getOpponent(self.owner).pos[0] in self.hitbox:
             getOpponent(self.owner).hurt(self.damage)
+
+        for i in range(len(structures)-1,-1,-1):
+            structures[i].hit(self.damage)
+
+class structure:
+    def __init__(self,x,y,face,health,owner=None):
+        self.pos=(x,y)
+        self.face=face
+        self.health = health
+        self.owner=owner
+        self.setting()
+
+    def setting(self):
+        self.img = STRUCTURES["img"]
+
+    def update(self):
+        self.health-=1
+    
+    def draw(self,surface):
+        # body,body_rect = rotCenter(self.img, scaleXY(self.pos,32), self.face*45)
+        # surface.blit(body, body_rect)
+        surface.blit(self.img,scaleXY(self.pos,GRID_SIZE))
+
+        health_text = font.render(str(self.health), True, (255, 255, 255))
+        xy = scaleXY(self.pos)
+        ix = xy[0] + GRID_SIZE//2 - health_text.get_width()//2
+        iy = xy[1] + GRID_SIZE//2 - health_text.get_height()//2
+        surface.blit(health_text, (ix,iy))
+
+    def hit(self,damage):
+        self.health = min(self.health - damage,20)
+
 
 class pSword(player):
     def move(self,mx,my):
@@ -301,6 +352,41 @@ class pSword(player):
     def skillAction3(self,x,y):
         effects.append(strike(x,y,self.face,100,self.p))
         effects[-1].checkHit()
+
+class pEngineer(player):
+    def setting(self):
+        self.turret_health = 20
+        self.overheat = 0
+
+    def skillAction1(self,x,y):
+        objects.append(energy_ball(x,y,self.face,owner = self.p,wait = True))
+        if self.overheat > 0:
+            self.overheat-=1
+            if self.overheat <= 0:
+                self.img = CHARS["engineer"][0]
+            for i in range(len(structures)):
+                if structures[i].owner == self.p:
+                    for xy in NEAR:
+                        objects.append(energy_ball(structures[i].pos[0]+xy[0],structures[i].pos[1]+xy[1],xy2face(xy),owner=self.p,wait=True))
+        else:
+            for s in structures:
+                if s.owner == self.p:
+                    xy=getPos(s.pos,self.face)
+                    objects.append(energy_ball(xy[0],xy[1],self.face,owner = self.p,wait = True))
+    
+    def skillAction2(self,x,y):
+        turrets = []
+        for i in range(len(structures)):
+            if structures[i].owner == self.p:
+                turrets.append(i)
+        if len(turrets) >= 2:
+            del structures[turrets[0]]
+        structures.append(turret(x,y,self.face,self.turret_health,self.p))
+    
+    def skillAction3(self,x,y):
+        self.overheat = 2
+        self.img = CHARS["engineer"][1]
+        
 
    
 class sword_p(projectile):
@@ -345,8 +431,12 @@ class sword_e(effect):
         surface.blit(right, right_rect)
 
     def checkHit(self):
-        if tuple(getOpponent(self.owner).pos[0]) in self.hitbox:
+        if getOpponent(self.owner).pos[0] in self.hitbox:
             getOpponent(self.owner).hurt(self.damage)
+            getSelf(self.owner).coolStep()
+        
+        for i in range(len(structures)-1,-1,-1):
+            structures[i].hit(self.damage)
             getSelf(self.owner).coolStep()
 
 class strike(effect):
@@ -368,13 +458,61 @@ class strike(effect):
             surface.blit(img, img_rect)
     
     def checkHit(self):
-        if tuple(getOpponent(self.owner).pos[0]) in self.hitbox:
+        if getOpponent(self.owner).pos[0] in self.hitbox:
             getOpponent(self.owner).hurt(self.damage)
             xy = getPos(getSelf(self.owner).pos[0],self.face)
             objects.append(sword_p(xy[0],xy[1],self.face,owner = self.owner,wait=True))
             getSelf(self.owner).coolStep()
-        if tuple(getOpponent(self.owner).pos[0]) in self.hitbox_stun:
+        if getOpponent(self.owner).pos[0] in self.hitbox_stun:
             getOpponent(self.owner).addStat("stun",2)
+
+        for i in range(len(structures)-1,-1,-1):
+            structures[i].hit(self.damage)
+            getSelf(self.owner).coolStep()
+
+class energy_ball(projectile):
+    def setting(self):
+        self.damage = 5
+        self.speed = 1
+        self.hitbox=[self.pos]
+        self.img = EFFECTS["energy_ball"]
+
+    def update(self):
+        if self.life:
+            self.life-=1
+            if self.life<=0:
+                return
+        box=self.hitbox[:]
+
+        if self.wait:
+            self.wait=False
+        else:
+            for i in range(self.speed):
+                self.pos = getPos(self.pos,self.face)
+                for i in range(len(self.hitbox)):
+                    self.hitbox[i]=getPos(self.hitbox[i],self.face)
+                box=box+self.hitbox
+
+        if getOpponent(self.owner).pos[0] in box:
+            self.hit(3-self.owner)
+            self.life=0
+
+        for i in range(len(structures)-1,-1,-1):
+            if structures[i].pos in box:
+                if structures[i].owner == self.owner:
+                    structures[i].hit(-self.damage)
+                else:
+                    structures[i].hit(self.damage)
+                self.life=0
+    
+    def hit(self,p):
+        getSelf(p).hurt(self.damage)
+
+class turret(structure):
+    def setting(self):
+        self.img = STRUCTURES["turret"]
+    
+
 
 def face2xy(face):
     return tuple(map(int,XY[face].split("/")))
@@ -468,6 +606,8 @@ def draw_objects(surface,p1,p2):
         e.draw(surface)
     for o in objects:
         o.draw(surface)
+    for s in structures:
+        s.draw(surface)
     
 def draw_text(surface, text, x, y, font, color=TEXT_COLOR):
     img = font.render(text, True, color)
@@ -546,14 +686,18 @@ def changeTurn(p,step=True):
             objects[i].update()
             if objects[i].life==0:
                 del objects[i]
+        for i in range(len(structures)-1,-1,-1):
+            structures[i].update()
+            if structures[i].health==0:
+                del structures[i]
         getSelf(turn).update()
     return turn
 
 def setChar(xy,char,p):
     if char=="sword":
         return pSword(xy,"sword",p)
-    elif char=="sword":
-        return pSword(xy,"sword",p)
+    elif char=="engineer":
+        return pEngineer(xy,"engineer",p)
 
 def charSelect():
     global running
@@ -711,9 +855,6 @@ def charSelect():
 running = True
 def main():
     global p1,p2,turn,objects,effects,running
-
-    # p1 = pSword((1,1),"sword",1)
-    # p2 = pSword((8,8),"sword",2)
 
     p1,p2 = charSelect()
 
