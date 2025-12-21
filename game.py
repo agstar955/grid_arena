@@ -57,7 +57,7 @@ SKILLS = {"sword":{
         "2": loadImg("icons/sword/skill2.png",SCALE//2),
         "3": loadImg("icons/sword/skill3.png",SCALE//2)},
     "engineer":{
-        "passive": loadImg("icons/sword/passive.png",SCALE//2),
+        "passive": loadImg("icons/engineer/passive.png",SCALE//2),
         "move": loadImg("icons/engineer/move.png",SCALE//2),
         "1": loadImg("icons/engineer/skill1.png",SCALE//2),
         "2": loadImg("icons/engineer/skill2.png",SCALE//2),
@@ -163,7 +163,10 @@ class player:
     def move(self,mx,my):
         for tile in self.tiles["move"]:
             x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
-            if x==mx and y==my:
+            if (x,y)==(mx,my) and (x,y)!=getOpponent(self.p).pos[0]:
+                for s in structures:
+                    if (x,y)==s.pos:
+                        return
                 self.face = xy2face(tile)
                 
                 self.cool[0]-=1
@@ -178,7 +181,8 @@ class player:
         for tile in self.tiles["s1"]:
             x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
             if x==mx and y==my:
-                self.face = xy2face(tile)
+                if tile!=(0,0):
+                    self.face = xy2face(tile)
                 self.skillAction1(x,y)
                 self.cool[1]=self.maxcool[1]
                 self.mode=''
@@ -188,7 +192,8 @@ class player:
         for tile in self.tiles["s2"]:
             x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
             if x==mx and y==my:
-                self.face = xy2face(tile)
+                if tile!=(0,0):
+                    self.face = xy2face(tile)
                 self.skillAction2(x,y)
                 self.cool[2]=self.maxcool[2]
                 self.mode=''
@@ -198,7 +203,8 @@ class player:
         for tile in self.tiles["s3"]:
             x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
             if x==mx and y==my:
-                self.face = xy2face(tile)
+                if tile!=(0,0):
+                    self.face = xy2face(tile)
                 self.skillAction3(x,y)
                 self.cool[3]=self.maxcool[3]
                 self.mode=''
@@ -232,35 +238,47 @@ class projectile:
             self.life-=1
             if self.life<=0:
                 return
-        box=self.hitbox[:]
 
         if self.wait:
             self.wait=False
         else:
             for i in range(self.speed):
+                if self.checkHit():
+                    break
+
                 self.pos = getPos(self.pos,self.face)
                 for i in range(len(self.hitbox)):
                     self.hitbox[i]=getPos(self.hitbox[i],self.face)
-                box=box+self.hitbox
 
-        if self.owner:
-            if getOpponent(self.owner).pos[0] in box:
-                self.hit(3-self.owner)
-                self.life=0
-        else:
-            if getSelf(1).pos[0] in box:
-                self.hit(1)
-                self.life=0
-            if getSelf(2).pos[0] in box:
-                self.hit(2)
-                self.life=0
-
-        for i in range(len(structures)-1,-1,-1):
-            structures[i].hit(self.damage)
-            self.life=0
+        if self.life is None or self.life > 0 or self.wait:
+            self.checkHit()
     
     def hit(self,p):
         getSelf(p).hurt(self.damage)
+
+    def checkHit(self):
+        ishit = False
+        if self.owner:
+            if getOpponent(self.owner).pos[0] in self.hitbox:
+                self.hit(3-self.owner)
+                self.life=0
+                ishit=True
+        else:
+            if getSelf(1).pos[0] in self.hitbox:
+                self.hit(1)
+                self.life=0
+                ishit=True
+            if getSelf(2).pos[0] in self.hitbox:
+                self.hit(2)
+                self.life=0
+                ishit=True
+
+        for i in range(len(structures)-1,-1,-1):
+            if structures[i].pos in self.hitbox:
+                structures[i].hit(self.damage)
+                self.life=0
+                ishit=True
+        return ishit
         
         
     def draw(self,surface):
@@ -292,7 +310,8 @@ class effect:
             getOpponent(self.owner).hurt(self.damage)
 
         for i in range(len(structures)-1,-1,-1):
-            structures[i].hit(self.damage)
+            if structures[i].pos in self.hitbox:
+                structures[i].hit(self.damage)
 
 class structure:
     def __init__(self,x,y,face,health,owner=None):
@@ -327,7 +346,10 @@ class pSword(player):
     def move(self,mx,my):
         for tile in self.tiles["move"]:
             x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
-            if x==mx and y==my:
+            if (x,y)==(mx,my) and (x,y)!=getOpponent(self.p).pos[0]:
+                for s in structures:
+                    if (x,y)==s.pos:
+                        return
                 self.face = xy2face(tile)
 
                 if distance((x,y),self.pos[0])==2:
@@ -436,8 +458,9 @@ class sword_e(effect):
             getSelf(self.owner).coolStep()
         
         for i in range(len(structures)-1,-1,-1):
-            structures[i].hit(self.damage)
-            getSelf(self.owner).coolStep()
+            if structures[i].pos in self.hitbox:
+                structures[i].hit(self.damage)
+                getSelf(self.owner).coolStep()
 
 class strike(effect):
     def setting(self):
@@ -467,46 +490,33 @@ class strike(effect):
             getOpponent(self.owner).addStat("stun",2)
 
         for i in range(len(structures)-1,-1,-1):
-            structures[i].hit(self.damage)
-            getSelf(self.owner).coolStep()
+            if structures[i].pos in self.hitbox:
+                structures[i].hit(self.damage)
+                getSelf(self.owner).coolStep()
 
 class energy_ball(projectile):
     def setting(self):
-        self.damage = 5
+        self.damage = 7
         self.speed = 1
         self.hitbox=[self.pos]
         self.img = EFFECTS["energy_ball"]
-
-    def update(self):
-        if self.life:
-            self.life-=1
-            if self.life<=0:
-                return
-        box=self.hitbox[:]
-
-        if self.wait:
-            self.wait=False
-        else:
-            for i in range(self.speed):
-                self.pos = getPos(self.pos,self.face)
-                for i in range(len(self.hitbox)):
-                    self.hitbox[i]=getPos(self.hitbox[i],self.face)
-                box=box+self.hitbox
-
-        if getOpponent(self.owner).pos[0] in box:
+    
+    def checkHit(self):
+        ishit = False
+        if getOpponent(self.owner).pos[0] in self.hitbox:
             self.hit(3-self.owner)
             self.life=0
-
+            ishit=True
+        
         for i in range(len(structures)-1,-1,-1):
-            if structures[i].pos in box:
+            if structures[i].pos in self.hitbox:
                 if structures[i].owner == self.owner:
                     structures[i].hit(-self.damage)
                 else:
                     structures[i].hit(self.damage)
                 self.life=0
-    
-    def hit(self,p):
-        getSelf(p).hurt(self.damage)
+                ishit=True
+        return ishit
 
 class turret(structure):
     def setting(self):
@@ -688,7 +698,7 @@ def changeTurn(p,step=True):
                 del objects[i]
         for i in range(len(structures)-1,-1,-1):
             structures[i].update()
-            if structures[i].health==0:
+            if structures[i].health<=0:
                 del structures[i]
         getSelf(turn).update()
     return turn
