@@ -78,7 +78,11 @@ EFFECTS = {"sword_adj": {"body":loadImg("effects/sword_adj.png",SCALE),
 
 STATS = {"stun":loadImg("stat/stun.png",SCALE)}
 
-D = {"sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}}}
+D = {"sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}},
+     "sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}},
+     "sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}},
+     "sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}},
+     "sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":ADJ+ADJ2,"s1":NEAR,"s2":NEAR,"s3":ADJ}},}
 
 class player:
     def __init__(self,xy,c,p):
@@ -204,6 +208,7 @@ class projectile:
     
     def setting(self):
         self.damage = 10
+        self.speed = 1
         self.hitbox=[self.pos]
         self.img = EFFECTS["img"]
     
@@ -217,10 +222,11 @@ class projectile:
         if self.wait:
             self.wait=False
         else:
-            self.pos = getPos(self.pos,self.face)
-            for i in range(len(self.hitbox)):
-                self.hitbox[i]=getPos(self.hitbox[i],self.face)
-            box=box+self.hitbox
+            for i in range(self.speed):
+                self.pos = getPos(self.pos,self.face)
+                for i in range(len(self.hitbox)):
+                    self.hitbox[i]=getPos(self.hitbox[i],self.face)
+                box=box+self.hitbox
 
         if self.owner:
             if tuple(getOpponent(self.owner).pos[0]) in box:
@@ -300,6 +306,7 @@ class pSword(player):
 class sword_p(projectile):
     def setting(self):
         self.damage = 10
+        self.speed = 2
         center = backtrack(self.pos,self.face)
         self.hitbox=[self.pos,getPos(center,addFace(self.face,1)),getPos(center,addFace(self.face,-1))]
         self.img = EFFECTS["sword_adj"] if self.face % 2 == 0 else EFFECTS["sword_diag"]
@@ -346,8 +353,13 @@ class strike(effect):
     def setting(self):
         self.damage = 15
         self.hitbox=[self.pos]
+        center = backtrack(self.pos,self.face)
+        row = [getPos(center,self.face-1),self.pos,getPos(center,self.face+1)]
+        self.hitbox_stun = row[:]
         while 0< self.hitbox[-1][0] < 9 and 0< self.hitbox[-1][1] < 9:
             self.hitbox.append(getPos(self.hitbox[-1],self.face))
+            row = list(map(lambda x:getPos(x,self.face),row))
+            self.hitbox_stun += row
         self.img = EFFECTS["sword_strike"]
         
     def draw(self,surface):
@@ -358,10 +370,11 @@ class strike(effect):
     def checkHit(self):
         if tuple(getOpponent(self.owner).pos[0]) in self.hitbox:
             getOpponent(self.owner).hurt(self.damage)
-            getOpponent(self.owner).addStat("stun",2)
             xy = getPos(getSelf(self.owner).pos[0],self.face)
             objects.append(sword_p(xy[0],xy[1],self.face,owner = self.owner,wait=True))
             getSelf(self.owner).coolStep()
+        if tuple(getOpponent(self.owner).pos[0]) in self.hitbox_stun:
+            getOpponent(self.owner).addStat("stun",2)
 
 def face2xy(face):
     return tuple(map(int,XY[face].split("/")))
@@ -536,16 +549,181 @@ def changeTurn(p,step=True):
         getSelf(turn).update()
     return turn
 
+def setChar(xy,char,p):
+    if char=="sword":
+        return pSword(xy,"sword",p)
+    elif char=="sword":
+        return pSword(xy,"sword",p)
+
+def charSelect():
+    global running
+    pygame.display.set_caption("Character Select")
+
+    characters = list(D.keys())
+    font40 = pygame.font.SysFont("consolas", 40)
+    font32 = pygame.font.SysFont("consolas", 32)
+    font28 = pygame.font.SysFont("consolas", 28)
+    title_font = pygame.font.SysFont("consolas", 60)
+
+    # 이미지 로드
+    images = {}
+    for name in characters:
+        try:
+            img = loadImg(f"chars/{name}.png",5)
+        except:
+            img = pygame.Surface((160, 160))
+            img.fill((120, 120, 120))
+        images[name] = img
+
+    # 카드 사이즈 및 배치
+    card_w, card_h = 160, 200      # 이름 공간 때문에 높이 증가
+    gap = 50
+    start_y = 180
+
+    # 전체 가로 길이 계산
+    total_width = len(characters) * (card_w + gap)
+
+    # 카드 rects: (name, base_rect_x, y)
+    cards = []
+    x = 100
+    for name in characters:
+        cards.append((name, x, start_y))
+        x += card_w + gap
+
+    # 스크롤 변수
+    scroll_x = 0
+    SCROLL_SPEED = 40
+
+    selected1 = None
+    selected2 = None
+    showing = None  # 설명 띄우는 대상
+
+    # 설명 카드 영역
+    info_rect = pygame.Rect(150, 460, 500, 240)
+
+    while running:
+        screen.fill((30, 30, 30))
+
+        # 제목
+        title = title_font.render("Select Characters", True, (255, 255, 255))
+        screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 60))
+
+        # --- 이미지 카드 렌더링 (좌우 스크롤 적용) ---
+        for name, base_x, y in cards:
+            rect = pygame.Rect(base_x + scroll_x, y, card_w, card_h)
+
+            # 카드 영역이 화면 바깥이면 스킵해서 성능 최적화
+            if rect.right < -50 or rect.left > SCREEN_WIDTH + 50:
+                continue
+
+            # 카드 배경
+            pygame.draw.rect(screen, (60, 60, 60), rect, border_radius=8)
+            pygame.draw.rect(screen, (150, 150, 150), rect, 2, border_radius=8)
+
+            # 이미지
+            screen.blit(images[name], (rect.x, rect.y))
+
+            # 이름
+            txt = font32.render(name.capitalize(), True, (255,255,255))
+            screen.blit(txt, (rect.x + card_w//2 - txt.get_width()//2, rect.y + 165))
+
+            # 선택 표시
+            if selected1 == name:
+                mark = font32.render("P1", True, (255,100,100))
+                screen.blit(mark, (rect.x, rect.y - 30))
+            if selected2 == name:
+                mark = font32.render("P2", True, (100,200,255))
+                screen.blit(mark, (rect.x + 60, rect.y - 30))
+
+        # --- 설명 카드 렌더링 ---
+        if showing is not None:
+            pygame.draw.rect(screen, (40, 40, 40), info_rect, border_radius=10)
+            pygame.draw.rect(screen, (200, 200, 200), info_rect, 3, border_radius=10)
+
+            x = info_rect.x + 20
+            y = info_rect.y + 20
+
+            screen.blit(font40.render(showing.capitalize(), True, (255,255,255)), (x, y))
+            y += 50
+
+            passive = D[showing].get("passive", "")
+            screen.blit(font28.render(f"Passive: {passive}", True, (230,230,230)), (x, y)); y += 32
+
+            skills = D[showing]["skill"]
+            screen.blit(font28.render(f"S1: {skills[1]}", True, (230,230,230)), (x, y)); y += 28
+            screen.blit(font28.render(f"S2: {skills[2]}", True, (230,230,230)), (x, y)); y += 28
+            screen.blit(font28.render(f"S3: {skills[3]}", True, (230,230,230)), (x, y)); y += 28
+
+        pygame.display.flip()
+
+        # --- 이벤트 처리 ---
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                return None, None
+
+            # 마우스 휠 좌우 스크롤
+            if event.type == pygame.MOUSEWHEEL:
+                # wheel up → 오른쪽 이동
+                if event.y > 0:
+                    scroll_x += SCROLL_SPEED
+                else:
+                    scroll_x -= SCROLL_SPEED
+
+            # 키보드로 스크롤
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT:
+                    scroll_x += SCROLL_SPEED
+                elif event.key == pygame.K_RIGHT:
+                    scroll_x -= SCROLL_SPEED
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                
+                mx, my = event.pos
+
+                for name, base_x, y in cards:
+                    rect = pygame.Rect(base_x + scroll_x, y, card_w, card_h)
+
+                    if rect.collidepoint(mx, my):
+
+                        if showing != name:
+                            showing = name
+                            break
+
+                        if showing == name:
+                            if selected1 is None:
+                                selected1 = name
+                                showing = None
+                                break
+                            elif selected2 is None:
+                                selected2 = name
+                                showing = None
+                                p1 = setChar((1,1), selected1, 1)
+                                p2 = setChar((8,8), selected2, 2)
+                                return p1, p2
+
+
+    return None, None
+
+    
+    
+
+running = True
 def main():
-    global p1,p2,turn,objects,effects
-    p1 = pSword((1,1),"sword",1)
-    p2 = pSword((8,8),"sword",2)
+    global p1,p2,turn,objects,effects,running
+
+    # p1 = pSword((1,1),"sword",1)
+    # p2 = pSword((8,8),"sword",2)
+
+    p1,p2 = charSelect()
+
+    pygame.display.set_caption("Grid Arena")
+
     objects = []
     effects = []
 
     turn = 1
 
-    running = True
     while running:
         turn_player = getSelf(turn)
 
