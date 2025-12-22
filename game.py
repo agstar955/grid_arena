@@ -548,7 +548,7 @@ class strike(effect):
         self.damage = 15
         self.hitbox=[self.pos]
         center = backtrack(self.pos,self.face)
-        row = [getPos(center,self.addFace(face,-1)),self.pos,getPos(center,self.addFace(face,1))]
+        row = [getPos(center,addFace(self.face,-1)),self.pos,getPos(center,addFace(self.face,1))]
         self.hitbox_stun = row[:]
         while 0<= self.hitbox[-1][0] <= 9 and 0<= self.hitbox[-1][1] <= 9:
             self.hitbox.append(getPos(self.hitbox[-1],self.face))
