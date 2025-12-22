@@ -63,25 +63,20 @@ SKILLS = {"sword":{
         "2": loadImg("icons/engineer/skill2.png",SCALE//2),
         "3": loadImg("icons/engineer/skill3.png",SCALE//2)},
     "teleporter":{
-        "passive": loadImg("icons/engineer/passive.png",SCALE//2),
-        "move": loadImg("icons/engineer/move.png",SCALE//2),
-        "1": loadImg("icons/engineer/skill1.png",SCALE//2),
-        "2": loadImg("icons/engineer/skill2.png",SCALE//2),
-        "3": loadImg("icons/engineer/skill3.png",SCALE//2)},}
+        "passive": loadImg("icons/teleporter/passive.png",SCALE//2),
+        "move": loadImg("icons/teleporter/move.png",SCALE//2),
+        "1": loadImg("icons/teleporter/skill1.png",SCALE//2),
+        "2": loadImg("icons/teleporter/skill2.png",SCALE//2),
+        "3": loadImg("icons/teleporter/skill3.png",SCALE//2)},}
 
 CHARS = {"sword":[loadImg("chars/sword.png",SCALE),loadImg("chars/sword2.png",SCALE)],
          "engineer":[loadImg("chars/engineer.png",SCALE),loadImg("chars/engineer2.png",SCALE)],
-         "teleporter":[loadImg("chars/engineer.png",SCALE),loadImg("chars/engineer2.png",SCALE)]}
+         "teleporter":[loadImg("chars/teleporter.png",SCALE),loadImg("chars/teleporter2.png",SCALE)]}
 
 ADJ= [(0,1),(0,-1),(1,0),(-1,0)]
-# ADJ2 = list(map(lambda x: (x[0]*2,x[1]*2), ADJ))
-# ADJ3 = list(map(lambda x: (x[0]*3,x[1]*3), ADJ))
 DIAG = [(1,1),(1,-1),(-1,1),(-1,-1)]
 NEAR = ADJ + DIAG
 SELF = [(0,0)]
-# DIAG_ALL = []
-# for i in range(9):
-#     DIAG_ALL+=list(map(lambda x:(x[0]*(i+1),x[1]*(i+1)),DIAG))
 ALL = []
 for i in range(-9,10):
     for j in range(-9,10):
@@ -118,8 +113,8 @@ EFFECTS = {"sword_adj": {"body":loadImg("effects/sword_adj.png",SCALE),
 STRUCTURES = {"turret":loadImg("structures/turret.png",SCALE)}
 
 STATS = {"stun":loadImg("stat/stun.png",SCALE),
-         "block":loadImg("stat/stun.png",SCALE),
-         "void":loadImg("stat/stun.png",SCALE)}
+         "block":loadImg("stat/block.png",SCALE),
+         "void":loadImg("stat/void.png",SCALE)}
 
 D = {"sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk/Dash","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":AREA("adj",2),"s1":NEAR,"s2":NEAR,"s3":ADJ}},
      "engineer":{"maxhp":100,"cool":[2,1,4,7],"passive":"Repair","skill":["Walk","Energy Ball","Turret","Overheat"],"move":3,"tiles":{"move":ADJ,"s1":NEAR,"s2":NEAR,"s3":SELF}},
@@ -466,6 +461,29 @@ class pTeleporter(player):
         getOpponent(self.p).addStat("void",2)
         self.addStat("void",2)
 
+    def skill3(self,mx,my):
+        for tile in self.tiles["s3"]:
+            x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
+            if x==mx and y==my:
+                self.cool[3]=self.maxcool[3]
+                self.skillAction3(x,y)
+                self.mode=''
+                self.img=CHARS["teleporter"][1]
+                return True
+            
+    def update(self):
+        self.coolStep()
+        for k in self.stat.keys():
+            if self.stat[k] > 0:
+                self.stat[k]-=1
+                if self.stat[k] == 0:
+                    self.checkStat(k)
+
+        if self.stat["void"] > 0:
+            self.img=CHARS["teleporter"][1]
+        else:
+            self.img=CHARS["teleporter"][0]
+
     def hurt(self,damage):
         if self.stat["block"] > 0:
             self.stat["block"]-=1
@@ -569,8 +587,13 @@ class void_slash(effect):
         self.hitbox=[getPos(self.pos,addFace(self.face,1)),getPos(self.pos,self.face),getPos(self.pos,addFace(self.face,-1))]
         self.img = EFFECTS["slash"]
 
-    # def draw(self):
-    #     pass
+    def draw(self,surface):
+        body,body_rect = rotCenter(self.img, scaleXY(getPos(self.pos,self.face),32), self.face*45)
+        surface.blit(body, body_rect)
+        body,body_rect = rotCenter(self.img, scaleXY(getPos(self.pos,addFace(self.face,1)),32), self.face*45)
+        surface.blit(body, body_rect)
+        body,body_rect = rotCenter(self.img, scaleXY(getPos(self.pos,addFace(self.face,-1)),32), self.face*45)
+        surface.blit(body, body_rect)
 
     def checkHit(self):
         if getOpponent(self.owner).pos[0] in self.hitbox:
@@ -585,7 +608,7 @@ class void_slash(effect):
 
 class energy_ball(projectile):
     def setting(self):
-        self.damage = 7
+        self.damage = 10
         self.speed = 1
         self.hitbox=[self.pos]
         self.img = EFFECTS["energy_ball"]
@@ -600,7 +623,8 @@ class energy_ball(projectile):
         for i in range(len(structures)-1,-1,-1):
             if structures[i].pos in self.hitbox:
                 if structures[i].owner == self.owner:
-                    structures[i].hit(-self.damage)
+                    structures[i].hit(-self.damage+3)
+                    getSelf(self.owner).cool[0]=0
                 else:
                     structures[i].hit(self.damage)
                 self.life=0
