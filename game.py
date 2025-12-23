@@ -119,7 +119,7 @@ STATS = {"stun":loadImg("stat/stun.png",SCALE),
 D = {"sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk/Dash","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":AREA("adj",2),"s1":NEAR,"s2":NEAR,"s3":ADJ}},
      "engineer":{"maxhp":100,"cool":[2,1,4,7],"passive":"Repair","skill":["Walk","Energy Ball","Turret","Overheat"],"move":3,"tiles":{"move":ADJ,"s1":NEAR,"s2":NEAR,"s3":SELF}},
      "teleporter":{"maxhp":50,"cool":[2,2,10,7],"passive":"Void","skill":["Blink","Slash","Shadow","Gate to Void"],"move":1,"tiles":{"move":AREA("diag",9),"s1":AREA("near",3),"s2":SELF,"s3":ALL}},
-     "sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":AREA("adj",2),"s1":NEAR,"s2":NEAR,"s3":ADJ}},
+     "mage":{"maxhp":100,"cool":[2,2,4,7],"passive":"Mana User","skill":["Mana Flow","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":AREA("adj",2),"s1":NEAR,"s2":NEAR,"s3":ADJ}},
      "sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":AREA("adj",2),"s1":NEAR,"s2":NEAR,"s3":ADJ}},}
 
 class player:
