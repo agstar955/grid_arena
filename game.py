@@ -211,7 +211,7 @@ class player:
     def skill1(self,mx,my):
         for tile in self.tiles["s1"]:
             x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
-            if x==mx and y==my:
+            if (x,y) == (mx,my):
                 if tile!=(0,0):
                     self.face = xy2face(tile)
                 self.cool[1]=self.maxcool[1]
@@ -222,7 +222,7 @@ class player:
     def skill2(self,mx,my):
         for tile in self.tiles["s2"]:
             x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
-            if x==mx and y==my:
+            if (x,y) == (mx,my):
                 if tile!=(0,0):
                     self.face = xy2face(tile)
                 self.cool[2]=self.maxcool[2]
@@ -233,7 +233,7 @@ class player:
     def skill3(self,mx,my):
         for tile in self.tiles["s3"]:
             x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
-            if x==mx and y==my:
+            if (x,y) == (mx,my):
                 if tile!=(0,0):
                     self.face = xy2face(tile)
                 self.cool[3]=self.maxcool[3]
@@ -441,6 +441,33 @@ class pEngineer(player):
         self.img = CHARS["engineer"][1]
 
 class pTeleporter(player):
+    def skill1(self,mx,my):
+        for tile in self.tiles["s1"]:
+            x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
+            if (x,y) == (mx,my) and (x,y) != getOpponent(self.p).pos[0]:
+                for s in structures:
+                    if (x,y)==s.pos:
+                        return
+                if tile!=(0,0):
+                    self.face = xy2face(tile)
+                self.cool[1]=self.maxcool[1]
+                self.skillAction1(x,y)
+                self.mode=''
+                return True
+
+    def skill3(self,mx,my):
+        for tile in self.tiles["s3"]:
+            x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
+            if (x,y)==(mx,my) and (x,y) != getOpponent(self.p).pos[0]:
+                for s in structures:
+                    if (x,y)==s.pos:
+                        return
+                self.cool[3]=self.maxcool[3]
+                self.skillAction3(x,y)
+                self.mode=''
+                self.img=CHARS["teleporter"][1]
+                return True
+
     def skillAction1(self,x,y):
         self.pos[0]=(x,y)
         xy=getPos(self.pos[0],self.face)
@@ -459,16 +486,6 @@ class pTeleporter(player):
         self.pos[0] = (x,y)
         getOpponent(self.p).addStat("void",2)
         self.addStat("void",3)
-
-    def skill3(self,mx,my):
-        for tile in self.tiles["s3"]:
-            x,y=tile[0]+self.pos[0][0], tile[1]+self.pos[0][1]
-            if x==mx and y==my:
-                self.cool[3]=self.maxcool[3]
-                self.skillAction3(x,y)
-                self.mode=''
-                self.img=CHARS["teleporter"][1]
-                return True
             
     def update(self):
         self.coolStep()
