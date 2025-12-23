@@ -448,7 +448,6 @@ class pTeleporter(player):
             effects.append(slash(xy[0],xy[1],self.face,EFFECT_DUR,self.p))
             effects[-1].checkHit()
         else:
-            print(self.stat["void"])
             effects.append(void_slash(self.pos[0][0],self.pos[0][1],self.face,EFFECT_DUR,self.p))
             effects[-1].checkHit()
 
@@ -459,7 +458,7 @@ class pTeleporter(player):
     def skillAction3(self,x,y):
         self.pos[0] = (x,y)
         getOpponent(self.p).addStat("void",2)
-        self.addStat("void",2)
+        self.addStat("void",3)
 
     def skill3(self,mx,my):
         for tile in self.tiles["s3"]:
@@ -598,13 +597,17 @@ class void_slash(effect):
     def checkHit(self):
         if getOpponent(self.owner).pos[0] in self.hitbox:
             getOpponent(self.owner).hurt(self.damage+5)
-            getOpponent(self.owner).addStat("void",1)
+            getOpponent(self.owner).addStat("void",2)
             getSelf(self.owner).addStat("void",1)
             getSelf(self.owner).cool[1] = max(getSelf(self.owner).cool[1]-1,0)
+            getSelf(self.owner).hurt(-5)
 
         for i in range(len(structures)-1,-1,-1):
             if structures[i].pos in self.hitbox:
                 structures[i].hit(self.damage+5)
+                getSelf(self.owner).addStat("void",1)
+                getSelf(self.owner).cool[1] = max(getSelf(self.owner).cool[1]-1,0)
+                getSelf(self.owner).hurt(-5)
 
 class energy_ball(projectile):
     def setting(self):
