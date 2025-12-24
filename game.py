@@ -127,7 +127,7 @@ STATS = {"stun":loadImg("stat/stun.png",SCALE),
 D = {"sword":{"maxhp":100,"cool":[2,2,4,7],"passive":"Bloodthirst","skill":["Walk/Dash","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":AREA("adj",2),"s1":NEAR,"s2":NEAR,"s3":ADJ}},
      "engineer":{"maxhp":100,"cool":[2,1,4,7],"passive":"Repair","skill":["Walk","Energy Ball","Turret","Overheat"],"move":3,"tiles":{"move":ADJ,"s1":NEAR,"s2":NEAR,"s3":SELF}},
      "teleporter":{"maxhp":50,"cool":[2,2,10,7],"passive":"Void","skill":["Blink","Slash","Shadow","Gate to Void"],"move":1,"tiles":{"move":AREA("diag",9),"s1":AREA("near",3),"s2":SELF,"s3":ALL}},
-     "mage":{"maxhp":100,"cool":[0,0,2,7],"passive":"Mana User","skill":["Mana Flow","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":NEAR,"s1":SELF,"s2":NEAR,"s3":ADJ}},
+     "mage":{"maxhp":100,"cool":[0,0,1,4],"passive":"Mana User","skill":["Step","Mana Flow","Wind","Explosion"],"move":4,"tiles":{"move":NEAR,"s1":SELF,"s2":NEAR,"s3":ADJ}},
      "sword":{"maxhp":100,"cool":[0,0,2,7],"passive":"Bloodthirst","skill":["Walk","Swing","Aura Blade","Sword Strike"],"move":4,"tiles":{"move":AREA("adj",2),"s1":NEAR,"s2":NEAR,"s3":ADJ}},}
 
 class player:
@@ -633,7 +633,7 @@ class strike(effect):
     def checkHit(self):
         if getOpponent(self.owner).pos[0] in self.hitbox:
             getOpponent(self.owner).hurt(self.damage)
-            xy = getPos(getSelf(self.owner).pos[0],self.face)
+            xy = getSelf(self.owner).pos[0]
             objects.append(sword_p(xy[0],xy[1],self.face,owner = self.owner,wait=True))
             getSelf(self.owner).coolStep()
         if getOpponent(self.owner).pos[0] in self.hitbox_stun:
@@ -733,7 +733,7 @@ class turret(structure):
     def update(self):
         self.health-=1
         xy = getPos(self.pos,self.face)
-        objects.append(energy_ball(xy[0],xy[1],self.face,owner = self.owner, wait = True))
+        objects.append(energy_ball(xy[0],xy[1],self.face,owner = self.owner, wait = False))
 
 
 
